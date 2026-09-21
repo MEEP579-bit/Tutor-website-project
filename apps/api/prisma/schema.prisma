@@ -1,0 +1,234 @@
+// Prisma schema — khung sườn, điều chỉnh theo nhu cầu thực tế khi phát triển
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PARENT
+  TUTOR
+  ADMIN
+}
+
+enum TeachingMode {
+  ONLINE
+  OFFLINE
+  BOTH
+}
+
+enum DocType {
+  CCCD
+  STUDENT_CARD
+  DEGREE
+  CERTIFICATE
+  CONFIRMATION_LETTER
+}
+
+enum DocStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum BadgeType {
+  IDENTITY
+  STUDENT
+  DEGREE
+  EXPERIENCE
+}
+
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  COMPLETED
+}
+
+enum NotificationType {
+  NEW_MATCHING_TUTOR
+  TUTOR_ACCEPTED_REQUEST
+  TUTOR_DECLINED_REQUEST
+  NEW_MESSAGE
+  UPCOMING_SESSION
+  SESSION_CANCELLED
+  NEW_REVIEW
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  PUSH
+  SMS
+}
+
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  phone             String?  @unique
+  passwordHash      String
+  role              Role
+  fullName          String
+  avatarUrl         String?
+  region            String?
+  emailVerifiedAt   DateTime?
+  phoneVerifiedAt   DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tutorProfile      TutorProfile?
+  tutoringRequests  TutoringRequest[] @relation("ParentRequests")
+  favorites         Favorite[]
+  sentMessages      Message[]         @relation("MessageSender")
+  reviewsWritten    Review[]          @relation("ReviewAuthor")
+  reviewsReceived   Review[]          @relation("ReviewTarget")
+  notifications     Notification[]
+}
+
+model TutorProfile {
+  id                String        @id @default(cuid())
+  user              User          @relation(fields: [userId], references: [id])
+  userId            String        @unique
+  bio               String?
+  subjects          String[]      // môn dạy
+  region            String?
+  teachingMode      TeachingMode  @default(BOTH)
+  hourlyRate        Int?          // học phí / buổi hoặc giờ
+  experienceYears   Int?
+  educationLevel    String?
+  schoolStudiedAt   String?
+  schedule          Json?         // lịch dạy dạng JSON (ngày/giờ rảnh)
+  certificates      String[]
+  achievements       String?
+  studentsAccepted  Int           @default(0)
+  ratingAvg         Float         @default(0)
+  ratingCount       Int           @default(0)
+  introVideoUrl     String?       // GD6.D — video giới thiệu
+
+  documents         VerificationDocument[]
+  badges            TutorBadge[]
+  bookings          Booking[]
+  matchScores       MatchScore[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model VerificationDocument {
+  id           String     @id @default(cuid())
+  tutor        TutorProfile @relation(fields: [tutorId], references: [id])
+  tutorId      String
+  type         DocType
+  fileUrl      String
+  status       DocStatus  @default(PENDING)
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime   @default(now())
+}
+
+model TutorBadge {
+  id        String    @id @default(cuid())
+  tutor     TutorProfile @relation(fields: [tutorId], references: [id])
+  tutorId   String
+  type      BadgeType
+  grantedAt DateTime  @default(now())
+
+  @@unique([tutorId, type])
+}
+
+model TutoringRequest {
+  id           String   @id @default(cuid())
+  parent       User     @relation("ParentRequests", fields: [parentId], references: [id])
+  parentId     String
+  subject      String
+  goal         String?
+  mode         TeachingMode
+  sessionsPerWeek Int?
+  timeSlots    Json?
+  budget       Int?
+  requirements String?
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  bookings     Booking[]
+  matchScores  MatchScore[]
+}
+
+model Booking {
+  id         String        @id @default(cuid())
+  request    TutoringRequest @relation(fields: [requestId], references: [id])
+  requestId  String
+  tutor      TutorProfile  @relation(fields: [tutorId], references: [id])
+  tutorId    String
+  status     BookingStatus @default(PENDING)
+  scheduledAt DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  messages   Message[]
+  reviews    Review[]
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  booking    Booking? @relation(fields: [bookingId], references: [id])
+  bookingId  String?
+  sender     User     @relation("MessageSender", fields: [senderId], references: [id])
+  senderId   String
+  content    String
+  createdAt  DateTime @default(now())
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  booking     Booking? @relation(fields: [bookingId], references: [id])
+  bookingId   String?
+  author      User     @relation("ReviewAuthor", fields: [authorId], references: [id])
+  authorId    String
+  target      User     @relation("ReviewTarget", fields: [targetId], references: [id])
+  targetId    String
+  rating      Int      // 1-5
+  qualityScore Int?
+  attitudeScore Int?
+  comment     String?
+  createdAt   DateTime @default(now())
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  parent    User     @relation(fields: [parentId], references: [id])
+  parentId  String
+  tutorId   String
+  createdAt DateTime @default(now())
+
+  @@unique([parentId, tutorId])
+}
+
+model Notification {
+  id        String              @id @default(cuid())
+  user      User                @relation(fields: [userId], references: [id])
+  userId    String
+  type      NotificationType
+  channel   NotificationChannel @default(IN_APP)
+  payload   Json?
+  readAt    DateTime?
+  createdAt DateTime            @default(now())
+}
+
+// GD6 — điểm matching AI giữa yêu cầu của phụ huynh và hồ sơ gia sư
+model MatchScore {
+  id         String   @id @default(cuid())
+  request    TutoringRequest @relation(fields: [requestId], references: [id])
+  requestId  String
+  tutor      TutorProfile    @relation(fields: [tutorId], references: [id])
+  tutorId    String
+  score      Float    // 0-1, tổng hợp theo trọng số (docs/06-nang-cao-ai.md)
+  breakdown  Json?    // điểm từng tiêu chí
+  createdAt  DateTime @default(now())
+
+  @@unique([requestId, tutorId])
+}

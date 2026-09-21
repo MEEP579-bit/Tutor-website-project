@@ -1,0 +1,18 @@
+// Các loại thông báo trong hệ thống — xem docs/03-tinh-nang-va-du-lieu.md mục 13
+
+export const NOTIFICATION_TYPES = {
+  NEW_MATCHING_TUTOR: "NEW_MATCHING_TUTOR",
+  TUTOR_ACCEPTED_REQUEST: "TUTOR_ACCEPTED_REQUEST",
+  TUTOR_DECLINED_REQUEST: "TUTOR_DECLINED_REQUEST",
+  NEW_MESSAGE: "NEW_MESSAGE",
+  UPCOMING_SESSION: "UPCOMING_SESSION",
+  SESSION_CANCELLED: "SESSION_CANCELLED",
+  NEW_REVIEW: "NEW_REVIEW",
+} as const;
+
+export const NOTIFICATION_CHANNELS = {
+  IN_APP: "IN_APP",
+  EMAIL: "EMAIL",
+  PUSH: "PUSH",
+  SMS: "SMS", // giai đoạn sau (Zalo/SMS)
+} as const;

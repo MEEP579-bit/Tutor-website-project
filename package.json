@@ -1,0 +1,12 @@
+{
+  "name": "gia-su-platform",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=@gia-su/api",
+    "dev:web": "npm run dev --workspace=@gia-su/web"
+  }
+}
