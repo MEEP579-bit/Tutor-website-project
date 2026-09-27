@@ -1,0 +1,13 @@
+# Loại trừ khi build Docker từ thư mục gốc (context: .)
+node_modules
+**/node_modules
+.next
+**/.next
+dist
+**/dist
+.env
+.env.local
+*.log
+.git
+.github
+docs

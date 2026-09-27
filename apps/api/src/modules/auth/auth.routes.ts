@@ -1,9 +1,10 @@
 import { Router } from "express";
-import * as controller from "./auth.controller";
+import { registerHandler, loginHandler, meHandler } from "./auth.controller";
+import { requireAuth } from "../../middlewares/require-auth";
 
-// Đăng ký, đăng nhập, xác thực email/sđt (OTP), quên mật khẩu, JWT
+// Đăng ký, đăng nhập, phiên đăng nhập hiện tại (docs/03 mục 1-2)
 export const authRouter = Router();
 
-// TODO: định nghĩa endpoint thực tế, ví dụ:
-// authRouter.get("/", controller.list);
-// authRouter.post("/", controller.create);
+authRouter.post("/register", registerHandler);
+authRouter.post("/login", loginHandler);
+authRouter.get("/me", requireAuth, meHandler);

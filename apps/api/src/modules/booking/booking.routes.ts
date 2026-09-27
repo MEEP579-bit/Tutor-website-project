@@ -1,9 +1,11 @@
 import { Router } from "express";
-import * as controller from "./booking.controller";
+import { createHandler, sentHandler, receivedHandler, statusHandler } from "./booking.controller";
+import { requireAuth, requireRole } from "../../middlewares/require-auth";
 
-// Đăng bài tìm gia sư (TutoringRequest), gửi/nhận/chấp nhận/từ chối yêu cầu dạy, lịch học
+// Yêu cầu học giữa phụ huynh & gia sư — GD3 mục 6-7, 12
 export const bookingRouter = Router();
 
-// TODO: định nghĩa endpoint thực tế, ví dụ:
-// bookingRouter.get("/", controller.list);
-// bookingRouter.post("/", controller.create);
+bookingRouter.post("/", requireAuth, requireRole("PARENT"), createHandler);
+bookingRouter.get("/sent", requireAuth, requireRole("PARENT"), sentHandler);
+bookingRouter.get("/received", requireAuth, requireRole("TUTOR"), receivedHandler);
+bookingRouter.patch("/:id/status", requireAuth, requireRole("TUTOR"), statusHandler);

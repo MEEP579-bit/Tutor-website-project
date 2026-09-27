@@ -1,9 +1,10 @@
 import { Router } from "express";
-import * as controller from "./reviews.controller";
+import { createHandler, listForTutorHandler, myReviewedHandler } from "./reviews.controller";
+import { requireAuth, requireRole } from "../../middlewares/require-auth";
 
-// Tạo & liệt kê đánh giá gia sư (rating, chất lượng, thái độ)
+// Đánh giá gia sư — GD3 mục 9
 export const reviewsRouter = Router();
 
-// TODO: định nghĩa endpoint thực tế, ví dụ:
-// reviewsRouter.get("/", controller.list);
-// reviewsRouter.post("/", controller.create);
+reviewsRouter.post("/", requireAuth, requireRole("PARENT"), createHandler);
+reviewsRouter.get("/mine", requireAuth, requireRole("PARENT"), myReviewedHandler);
+reviewsRouter.get("/tutor/:tutorId", listForTutorHandler);

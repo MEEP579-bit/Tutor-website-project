@@ -12,19 +12,32 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U giasu"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   api:
-    build: ./apps/api
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     env_file:
       - .env
+    environment:
+      # Ben trong mang Docker, Postgres co ten la "db", khong phai "localhost"
+      DATABASE_URL: postgresql://giasu:giasu@db:5432/giasu_platform
     ports:
       - "4000:4000"
 
   web:
-    build: ./apps/web
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
     restart: unless-stopped
     depends_on:
       - api

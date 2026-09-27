@@ -6,6 +6,7 @@ import { usersRouter } from "./modules/users/users.routes";
 import { tutorsRouter } from "./modules/tutors/tutors.routes";
 import { verificationRouter } from "./modules/verification/verification.routes";
 import { bookingRouter } from "./modules/booking/booking.routes";
+import { chatRouter } from "./modules/chat/chat.routes";
 import { matchingRouter } from "./modules/matching/matching.routes";
 import { notificationsRouter } from "./modules/notifications/notifications.routes";
 import { reviewsRouter } from "./modules/reviews/reviews.routes";
@@ -26,6 +27,7 @@ export function createApp(): Application {
   app.use("/api/tutors", tutorsRouter);
   app.use("/api/verification", verificationRouter);
   app.use("/api/booking", bookingRouter);
+  app.use("/api/chat", chatRouter);
   app.use("/api/matching", matchingRouter);
   app.use("/api/notifications", notificationsRouter);
   app.use("/api/reviews", reviewsRouter);

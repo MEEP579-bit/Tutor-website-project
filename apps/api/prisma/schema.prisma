@@ -95,6 +95,7 @@ model TutorProfile {
   userId            String        @unique
   bio               String?
   subjects          String[]      // môn dạy
+  classGroups       String[]      @default([]) // nhóm lớp có thể dạy: TIEU_HOC, THCS, THPT, SINH_VIEN, NGUOI_LON
   region            String?
   teachingMode      TeachingMode  @default(BOTH)
   hourlyRate        Int?          // học phí / buổi hoặc giờ
@@ -145,6 +146,7 @@ model TutoringRequest {
   parent       User     @relation("ParentRequests", fields: [parentId], references: [id])
   parentId     String
   subject      String
+  classGroup   String?  // lớp của con: TIEU_HOC, THCS, THPT, SINH_VIEN, NGUOI_LON
   goal         String?
   mode         TeachingMode
   sessionsPerWeek Int?
@@ -174,13 +176,14 @@ model Booking {
 }
 
 model Message {
-  id         String   @id @default(cuid())
-  booking    Booking? @relation(fields: [bookingId], references: [id])
+  id         String    @id @default(cuid())
+  booking    Booking?  @relation(fields: [bookingId], references: [id])
   bookingId  String?
-  sender     User     @relation("MessageSender", fields: [senderId], references: [id])
+  sender     User      @relation("MessageSender", fields: [senderId], references: [id])
   senderId   String
   content    String
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
+  readAt     DateTime? // thời điểm người nhận đọc tin — null = chưa đọc
 }
 
 model Review {
