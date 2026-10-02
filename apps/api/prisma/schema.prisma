@@ -77,6 +77,7 @@ model User {
   region            String?
   emailVerifiedAt   DateTime?
   phoneVerifiedAt   DateTime?
+  suspendedAt       DateTime? // null = tài khoản bình thường; có giá trị = đã bị admin khóa
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

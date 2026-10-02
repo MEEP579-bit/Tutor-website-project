@@ -1,9 +1,18 @@
 import { Router } from "express";
-import * as controller from "./notifications.controller";
+import {
+  listHandler,
+  unreadCountHandler,
+  markAsReadHandler,
+  markAllAsReadHandler,
+} from "./notifications.controller";
+import { requireAuth } from "../../middlewares/require-auth";
 
-// Bắn & liệt kê thông báo (in-app/email/push), theo các sự kiện trong docs/03
+// Thông báo — docs GD3 mục 13
 export const notificationsRouter = Router();
 
-// TODO: định nghĩa endpoint thực tế, ví dụ:
-// notificationsRouter.get("/", controller.list);
-// notificationsRouter.post("/", controller.create);
+notificationsRouter.use(requireAuth);
+
+notificationsRouter.get("/", listHandler);
+notificationsRouter.get("/unread-count", unreadCountHandler);
+notificationsRouter.patch("/:id/read", markAsReadHandler);
+notificationsRouter.patch("/read-all", markAllAsReadHandler);

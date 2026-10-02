@@ -1,4 +1,5 @@
 import { prisma } from "../../config/prisma";
+import { createNotification } from "../notifications/notifications.service";
 import type { CreateReviewInput } from "./reviews.schema";
 
 export class ReviewError extends Error {
@@ -14,7 +15,7 @@ export class ReviewError extends Error {
 export async function createReview(parentId: string, input: CreateReviewInput) {
   const booking = await prisma.booking.findUnique({
     where: { id: input.bookingId },
-    include: { request: true, tutor: true },
+    include: { request: { include: { parent: true } }, tutor: true },
   });
   if (!booking) throw new ReviewError("Không tìm thấy yêu cầu học này", 404);
   if (booking.request.parentId !== parentId) {
@@ -57,6 +58,12 @@ export async function createReview(parentId: string, input: CreateReviewInput) {
     },
   });
 
+  // Báo cho gia sư biết có đánh giá mới — docs GD3 mục 13
+  await createNotification(targetUserId, "NEW_REVIEW", {
+    rating: review.rating,
+    authorName: booking.request.parent.fullName,
+  });
+
   return {
     id: review.id,
     rating: review.rating,
@@ -78,7 +85,7 @@ export async function listTutorReviews(tutorProfileId: string) {
     orderBy: { createdAt: "desc" },
   });
 
-  return reviews.map((r) => ({
+  return reviews.map((r: any) => ({
     id: r.id,
     rating: r.rating,
     qualityScore: r.qualityScore,
@@ -95,5 +102,5 @@ export async function listMyReviewedBookingIds(parentId: string) {
     where: { authorId: parentId },
     select: { bookingId: true },
   });
-  return reviews.map((r) => r.bookingId).filter((id): id is string => Boolean(id));
+  return reviews.map((r: { bookingId: string | null }) => r.bookingId).filter((id): id is string => Boolean(id));
 }

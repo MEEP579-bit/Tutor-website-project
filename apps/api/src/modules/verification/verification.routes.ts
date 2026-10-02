@@ -1,9 +1,11 @@
 import { Router } from "express";
-import * as controller from "./verification.controller";
+import { submitHandler, listMineHandler, listPendingHandler, reviewHandler } from "./verification.controller";
+import { requireAuth, requireRole } from "../../middlewares/require-auth";
 
-// Upload & duyệt CCCD/thẻ SV/bằng cấp/chứng chỉ, cấp huy hiệu xác minh
+// Xác minh gia sư — docs "A. Xác minh gia sư"
 export const verificationRouter = Router();
 
-// TODO: định nghĩa endpoint thực tế, ví dụ:
-// verificationRouter.get("/", controller.list);
-// verificationRouter.post("/", controller.create);
+verificationRouter.post("/", requireAuth, requireRole("TUTOR"), submitHandler);
+verificationRouter.get("/me", requireAuth, requireRole("TUTOR"), listMineHandler);
+verificationRouter.get("/pending", requireAuth, requireRole("ADMIN"), listPendingHandler);
+verificationRouter.patch("/:id/review", requireAuth, requireRole("ADMIN"), reviewHandler);

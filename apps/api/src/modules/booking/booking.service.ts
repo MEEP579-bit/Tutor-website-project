@@ -1,4 +1,5 @@
 import { prisma } from "../../config/prisma";
+import { createNotification } from "../notifications/notifications.service";
 import type { CreateBookingInput } from "./booking.schema";
 
 export class BookingError extends Error {
@@ -126,7 +127,15 @@ export async function updateBookingStatus(
   const updated = await prisma.booking.update({
     where: { id: bookingId },
     data: { status },
-    include: { request: { include: { parent: true } } },
+    include: { request: { include: { parent: true } }, tutor: { include: { user: true } } },
   });
+
+  // Báo cho phụ huynh biết gia sư đã chấp nhận/từ chối — docs GD3 mục 13
+  await createNotification(
+    updated.request.parentId,
+    status === "ACCEPTED" ? "TUTOR_ACCEPTED_REQUEST" : "TUTOR_DECLINED_REQUEST",
+    { bookingId: updated.id, tutorName: updated.tutor.user.fullName, subject: updated.request.subject }
+  );
+
   return toPublicForTutor(updated);
 }

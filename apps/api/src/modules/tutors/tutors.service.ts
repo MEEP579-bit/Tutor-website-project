@@ -17,6 +17,7 @@ function toPublic(profile: any) {
     bio: profile.bio,
     subjects: profile.subjects,
     classGroups: profile.classGroups,
+    badges: (profile.badges ?? []).map((b: { type: string }) => b.type),
     region: profile.region,
     teachingMode: profile.teachingMode,
     hourlyRate: profile.hourlyRate,
@@ -57,7 +58,7 @@ export async function listTutors(filters: TutorSearchFilters) {
 
   const profiles = await prisma.tutorProfile.findMany({
     where,
-    include: { user: true },
+    include: { user: true, badges: true },
     orderBy: { ratingAvg: "desc" },
   });
   return profiles.map(toPublic);
@@ -67,7 +68,7 @@ export async function listTutors(filters: TutorSearchFilters) {
 export async function getTutorById(id: string) {
   const profile = await prisma.tutorProfile.findUnique({
     where: { id },
-    include: { user: true },
+    include: { user: true, badges: true },
   });
   if (!profile) throw new TutorError("Không tìm thấy gia sư", 404);
   return toPublic(profile);
@@ -77,13 +78,13 @@ export async function getTutorById(id: string) {
 export async function getMyProfile(userId: string) {
   let profile = await prisma.tutorProfile.findUnique({
     where: { userId },
-    include: { user: true },
+    include: { user: true, badges: true },
   });
 
   if (!profile) {
     profile = await prisma.tutorProfile.create({
       data: { userId, subjects: [], certificates: [] },
-      include: { user: true },
+      include: { user: true, badges: true },
     });
   }
 
@@ -96,7 +97,7 @@ export async function updateMyProfile(userId: string, data: UpdateTutorProfileIn
     where: { userId },
     update: data,
     create: { userId, ...data },
-    include: { user: true },
+    include: { user: true, badges: true },
   });
   return toPublic(profile);
 }

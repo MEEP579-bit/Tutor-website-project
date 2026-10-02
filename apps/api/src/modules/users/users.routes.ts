@@ -1,9 +1,10 @@
 import { Router } from "express";
-import * as controller from "./users.controller";
+import { updateMeHandler, changePasswordHandler } from "./users.controller";
+import { requireAuth } from "../../middlewares/require-auth";
 
-// Thông tin tài khoản phụ huynh: xem/sửa hồ sơ, khu vực, nhu cầu
+// Tài khoản của tôi — sửa họ tên/SĐT/khu vực, đổi mật khẩu (GD3 mục 1)
+// Xem thông tin hiện tại dùng chung GET /api/auth/me đã có sẵn.
 export const usersRouter = Router();
 
-// TODO: định nghĩa endpoint thực tế, ví dụ:
-// usersRouter.get("/", controller.list);
-// usersRouter.post("/", controller.create);
+usersRouter.put("/me", requireAuth, updateMeHandler);
+usersRouter.post("/me/password", requireAuth, changePasswordHandler);

@@ -80,6 +80,10 @@ export async function login(input: LoginInput) {
     throw new AuthError("Email hoặc mật khẩu không đúng", 401);
   }
 
+  if (user.suspendedAt) {
+    throw new AuthError("Tài khoản này đã bị khóa. Vui lòng liên hệ quản trị viên.", 403);
+  }
+
   const token = signToken(user.id, user.role);
   return { token, user: toPublicUser(user) };
 }

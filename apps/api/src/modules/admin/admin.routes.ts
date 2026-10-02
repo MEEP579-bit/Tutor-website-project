@@ -1,9 +1,23 @@
 import { Router } from "express";
-import * as controller from "./admin.controller";
+import {
+  overviewHandler,
+  listTutorsHandler,
+  listParentsHandler,
+  suspendUserHandler,
+  unsuspendUserHandler,
+  deleteReviewHandler,
+} from "./admin.controller";
+import { requireAuth, requireRole } from "../../middlewares/require-auth";
 
-// Dashboard, duyệt hồ sơ gia sư, quản lý môn học/bài đăng, báo cáo, khóa tài khoản
+// Quản trị — docs "hệ thống admin"
+// Duyệt giấy tờ xác minh dùng chung route bên module verification (GET /pending, PATCH /:id/review)
 export const adminRouter = Router();
 
-// TODO: định nghĩa endpoint thực tế, ví dụ:
-// adminRouter.get("/", controller.list);
-// adminRouter.post("/", controller.create);
+adminRouter.use(requireAuth, requireRole("ADMIN"));
+
+adminRouter.get("/overview", overviewHandler);
+adminRouter.get("/tutors", listTutorsHandler);
+adminRouter.get("/parents", listParentsHandler);
+adminRouter.patch("/users/:id/suspend", suspendUserHandler);
+adminRouter.patch("/users/:id/unsuspend", unsuspendUserHandler);
+adminRouter.delete("/reviews/:id", deleteReviewHandler);

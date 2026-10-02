@@ -8,11 +8,15 @@ export class ChatError extends Error {
   }
 }
 
-// Chỉ đúng 2 người liên quan tới 1 yêu cầu học ĐÃ ĐƯỢC NHẬN mới được xem/gửi tin
+const CHATTABLE_STATUSES = ["ACCEPTED", "COMPLETED"] as const;
+
+// Một cuộc trò chuyện = một CẶP (phụ huynh, gia sư), dù họ có bao nhiêu yêu cầu học với nhau.
+// Điều kiện được chat: cặp này có ÍT NHẤT 1 yêu cầu học đã được nhận.
+// bookingId trên URL chỉ là "cửa vào" — server luôn gộp tin nhắn của mọi yêu cầu cùng cặp.
 async function assertParticipant(userId: string, bookingId: string) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { request: { include: { parent: true } }, tutor: { include: { user: true } } },
+    include: { request: true, tutor: true },
   });
   if (!booking) throw new ChatError("Không tìm thấy cuộc trò chuyện này", 404);
 
@@ -20,24 +24,38 @@ async function assertParticipant(userId: string, bookingId: string) {
   const isTutor = booking.tutor.userId === userId;
   if (!isParent && !isTutor) throw new ChatError("Bạn không có quyền truy cập cuộc trò chuyện này", 403);
 
-  if (booking.status !== "ACCEPTED" && booking.status !== "COMPLETED") {
+  if (!CHATTABLE_STATUSES.includes(booking.status as (typeof CHATTABLE_STATUSES)[number])) {
     throw new ChatError("Chỉ có thể trò chuyện sau khi yêu cầu học đã được nhận", 403);
   }
 
-  return { booking, isParent };
+  return booking;
+}
+
+// Tất cả yêu cầu học (đã nhận) giữa đúng cặp phụ huynh – gia sư này
+async function getPairBookingIds(parentUserId: string, tutorUserId: string) {
+  const bookings = await prisma.booking.findMany({
+    where: {
+      status: { in: [...CHATTABLE_STATUSES] },
+      request: { parentId: parentUserId },
+      tutor: { userId: tutorUserId },
+    },
+    select: { id: true },
+  });
+  return bookings.map((b) => b.id);
 }
 
 export async function listMessages(userId: string, bookingId: string) {
-  const { booking } = await assertParticipant(userId, bookingId);
+  const booking = await assertParticipant(userId, bookingId);
+  const pairIds = await getPairBookingIds(booking.request.parentId, booking.tutor.userId);
 
   // Đánh dấu đã đọc toàn bộ tin của phía bên kia gửi, ngay khi mở cuộc trò chuyện
   await prisma.message.updateMany({
-    where: { bookingId: booking.id, senderId: { not: userId }, readAt: null },
+    where: { bookingId: { in: pairIds }, senderId: { not: userId }, readAt: null },
     data: { readAt: new Date() },
   });
 
   const messages = await prisma.message.findMany({
-    where: { bookingId },
+    where: { bookingId: { in: pairIds } },
     include: { sender: true },
     orderBy: { createdAt: "asc" },
   });
@@ -68,50 +86,71 @@ export async function sendMessage(userId: string, bookingId: string, content: st
   };
 }
 
-// Danh sách tất cả cuộc trò chuyện của người dùng hiện tại (mọi yêu cầu học đã "Đã nhận")
-export async function listConversations(userId: string) {
-  const bookingsAsParent = await prisma.booking.findMany({
-    where: { status: "ACCEPTED", request: { parentId: userId } },
-    include: { request: true, tutor: { include: { user: true } } },
-  });
-  const bookingsAsTutorProfile = await prisma.tutorProfile.findUnique({ where: { userId } });
-  const bookingsAsTutor = bookingsAsTutorProfile
-    ? await prisma.booking.findMany({
-        where: { status: "ACCEPTED", tutorId: bookingsAsTutorProfile.id },
-        include: { request: { include: { parent: true } }, tutor: { include: { user: true } } },
-      })
-    : [];
+interface ConversationGroup {
+  otherPartyName: string;
+  otherPartyAvatarUrl: string | null;
+  repBookingId: string; // yêu cầu gần nhất — dùng làm "cửa vào" cuộc trò chuyện
+  bookingIds: string[];
+}
 
-  const items: Array<{
-    bookingId: string;
-    otherPartyName: string;
-    otherPartyAvatarUrl: string | null;
-  }> = [
-    ...bookingsAsParent.map((b) => ({
-      bookingId: b.id,
-      otherPartyName: b.tutor.user.fullName,
-      otherPartyAvatarUrl: b.tutor.user.avatarUrl,
-    })),
-    ...bookingsAsTutor.map((b) => ({
-      bookingId: b.id,
-      otherPartyName: b.request.parent.fullName,
-      otherPartyAvatarUrl: b.request.parent.avatarUrl,
-    })),
-  ];
+// Danh sách cuộc trò chuyện của người dùng hiện tại — MỖI NGƯỜI CHỈ XUẤT HIỆN 1 LẦN
+export async function listConversations(userId: string) {
+  const groups = new Map<string, ConversationGroup>();
+
+  // Phía phụ huynh: gom các yêu cầu theo gia sư
+  const asParent = await prisma.booking.findMany({
+    where: { status: { in: [...CHATTABLE_STATUSES] }, request: { parentId: userId } },
+    include: { tutor: { include: { user: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+  for (const b of asParent) {
+    const key = b.tutor.userId;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        otherPartyName: b.tutor.user.fullName,
+        otherPartyAvatarUrl: b.tutor.user.avatarUrl,
+        repBookingId: b.id,
+        bookingIds: [],
+      });
+    }
+    groups.get(key)!.bookingIds.push(b.id);
+  }
+
+  // Phía gia sư: gom các yêu cầu theo phụ huynh
+  const tutorProfile = await prisma.tutorProfile.findUnique({ where: { userId } });
+  if (tutorProfile) {
+    const asTutor = await prisma.booking.findMany({
+      where: { status: { in: [...CHATTABLE_STATUSES] }, tutorId: tutorProfile.id },
+      include: { request: { include: { parent: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+    for (const b of asTutor) {
+      const key = b.request.parentId;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          otherPartyName: b.request.parent.fullName,
+          otherPartyAvatarUrl: b.request.parent.avatarUrl,
+          repBookingId: b.id,
+          bookingIds: [],
+        });
+      }
+      groups.get(key)!.bookingIds.push(b.id);
+    }
+  }
 
   const conversations = await Promise.all(
-    items.map(async (item) => {
+    Array.from(groups.values()).map(async (g) => {
       const lastMessage = await prisma.message.findFirst({
-        where: { bookingId: item.bookingId },
+        where: { bookingId: { in: g.bookingIds } },
         orderBy: { createdAt: "desc" },
       });
       const unreadCount = await prisma.message.count({
-        where: { bookingId: item.bookingId, senderId: { not: userId }, readAt: null },
+        where: { bookingId: { in: g.bookingIds }, senderId: { not: userId }, readAt: null },
       });
       return {
-        bookingId: item.bookingId,
-        otherPartyName: item.otherPartyName,
-        otherPartyAvatarUrl: item.otherPartyAvatarUrl,
+        bookingId: g.repBookingId,
+        otherPartyName: g.otherPartyName,
+        otherPartyAvatarUrl: g.otherPartyAvatarUrl,
         lastMessage: lastMessage?.content ?? null,
         lastMessageAt: lastMessage?.createdAt ?? null,
         unreadCount,

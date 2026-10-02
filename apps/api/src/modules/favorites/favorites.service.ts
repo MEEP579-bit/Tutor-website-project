@@ -8,6 +8,7 @@ function toPublicTutor(profile: any) {
     bio: profile.bio,
     subjects: profile.subjects,
     classGroups: profile.classGroups,
+    badges: (profile.badges ?? []).map((b: { type: string }) => b.type),
     region: profile.region,
     teachingMode: profile.teachingMode,
     hourlyRate: profile.hourlyRate,
@@ -25,16 +26,16 @@ export async function listFavorites(parentId: string) {
   });
   if (favorites.length === 0) return [];
 
-  const tutorIds = favorites.map((f) => f.tutorId);
+  const tutorIds = favorites.map((f: { tutorId: string }) => f.tutorId);
   const profiles = await prisma.tutorProfile.findMany({
     where: { id: { in: tutorIds } },
-    include: { user: true },
+    include: { user: true, badges: true },
   });
 
   // Giữ đúng thứ tự lưu gần nhất lên đầu
-  const order = new Map(tutorIds.map((id, idx) => [id, idx]));
+  const order = new Map(tutorIds.map((id: string, idx: number) => [id, idx]));
   return profiles
-    .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+    .sort((a: { id: string }, b: { id: string }) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
     .map(toPublicTutor);
 }
 
